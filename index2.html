@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Короче. — свой сокращатель ссылок</title>
+<meta name="description" content="Сокращатель ссылок без рекламы и трекеров. Работает на твоём домене, ссылки хранятся в твоей базе.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1A14; --panel:#113A2E; --panel2:#0A241C;
+    --line:#2C5A48; --text:#EAF4EC; --muted:#9DBBA9;
+    --yellow:#FFD23F; --red:#FF5C39; --mint:#7FD1AE;
+    --paper:#F5EFDC; --ink:#14251F; --shadow:#07110C;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box }
+  [hidden]{ display:none !important }
+  html{ scroll-behavior:smooth }
+  body{
+    background:var(--bg); color:var(--text);
+    font:400 16px/1.6 'Golos Text', sans-serif;
+    overflow-x:hidden;
+  }
+  ::selection{ background:var(--yellow); color:var(--ink) }
+  body::before{
+    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:radial-gradient(rgba(255,255,255,.05) 1px, transparent 1.4px);
+    background-size:28px 28px;
+  }
+  .road{
+    position:fixed; top:0; bottom:0; width:3px; z-index:0; pointer-events:none;
+    background:repeating-linear-gradient(180deg, rgba(255,210,63,.16) 0 26px, transparent 26px 52px);
+    animation:road 1.6s linear infinite;
+  }
+  .road.l{ left:26px } .road.r{ right:26px; animation-duration:2.3s }
+  @keyframes road{ to{ background-position:0 52px } }
+
+  .container{ width:min(1080px, 92vw); margin-inline:auto; position:relative; z-index:1 }
+
+  /* ── бегущая строка ─────────────────────────── */
+  .ticker{ background:var(--yellow); color:var(--ink); overflow:hidden; border-bottom:2px solid var(--ink) }
+  .ticker-track{ display:flex; width:max-content; animation:mq 28s linear infinite }
+  .ticker-group{ display:flex; align-items:center }
+  .ticker-group span{
+    display:inline-flex; align-items:center; gap:10px; padding:9px 16px;
+    font:700 13px 'JetBrains Mono', monospace; white-space:nowrap;
+  }
+  .ticker-group b{ color:var(--red); font-size:15px }
+  .ticker-group .sc{ font-size:15px; opacity:.55 }
+  @keyframes mq{ to{ transform:translateX(-50%) } }
+
+  /* ── шапка ──────────────────────────────────── */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:rgba(10,26,20,.92); backdrop-filter:blur(6px);
+    border-bottom:2px solid var(--line);
+  }
+  header .container{ display:flex; align-items:center; justify-content:space-between; padding:14px 0; flex-wrap:wrap; gap:10px }
+  .logo{ display:flex; align-items:center; text-decoration:none; color:var(--text); font:900 22px 'Unbounded' }
+  .logo i{ font-style:normal; color:var(--yellow) }
+  .logo-badge{
+    display:inline-grid; place-items:center; width:32px; height:32px; margin-right:11px;
+    background:var(--yellow); color:var(--ink); border-radius:9px; font-size:15px;
+    transform:rotate(-8deg); box-shadow:2px 2px 0 var(--shadow); transition:transform .3s;
+  }
+  .logo:hover .logo-badge{ transform:rotate(10deg) scale(1.1) }
+  nav{ display:flex; gap:22px; flex-wrap:wrap; align-items:center }
+  nav a{ color:var(--muted); text-decoration:none; font:600 14px 'Golos Text'; position:relative; padding:5px 2px }
+  nav a::after{ content:''; position:absolute; left:0; bottom:0; height:2px; width:0; background:var(--yellow); transition:width .22s }
+  nav a:hover{ color:var(--text) } nav a:hover::after{ width:100% }
+
+  /* статус-чип базы */
+  .db-chip{
+    display:inline-flex; align-items:center; gap:8px; padding:6px 13px;
+    border:2px solid var(--line); border-radius:999px;
+    font:600 12px 'JetBrains Mono'; color:var(--muted);
+    background:var(--panel2); transition:border-color .3s, color .3s;
+  }
+  .db-chip .dot{ width:9px; height:9px; border-radius:50%; background:var(--muted); flex:none; position:relative }
+  .db-chip.ping .dot{ background:var(--yellow); animation:blink 1s ease-in-out infinite }
+  .db-chip.on{ border-color:var(--mint); color:var(--mint) }
+  .db-chip.on .dot{ background:var(--mint); box-shadow:0 0 0 0 rgba(127,209,174,.6); animation:pulse 2s ease-out infinite }
+  .db-chip.demo{ border-color:var(--yellow); color:var(--yellow) }
+  .db-chip.demo .dot{ background:var(--yellow) }
+  .db-chip.err{ border-color:var(--red); color:var(--red) }
+  .db-chip.err .dot{ background:var(--red) }
+  @keyframes blink{ 50%{ opacity:.25 } }
+  @keyframes pulse{ 0%{ box-shadow:0 0 0 0 rgba(127,209,174,.55) } 70%{ box-shadow:0 0 0 8px rgba(127,209,174,0) } 100%{ box-shadow:0 0 0 0 rgba(127,209,174,0) } }
+
+  /* ── герой: сразу инструмент ────────────────── */
+  .hero{
+    display:grid; grid-template-columns:1.25fr .75fr; gap:clamp(24px,4vw,56px);
+    align-items:end; padding:clamp(38px,7vh,70px) 0 30px;
+  }
+  .overline{ font:600 13px 'JetBrains Mono'; color:var(--mint); letter-spacing:.5px; margin-bottom:14px }
+  h1{ font:900 clamp(32px,5.6vw,62px)/1.06 'Unbounded'; letter-spacing:-.5px }
+  h1 em{ font-style:normal; color:var(--yellow); text-decoration:underline wavy var(--red) 3px; text-underline-offset:9px }
+  .sub{ margin-top:18px; color:var(--muted); font-size:17px; max-width:46ch }
+  .stats{ display:flex; flex-wrap:wrap; gap:clamp(16px,3vw,32px); padding-bottom:8px }
+  .stat b{ display:block; font:800 clamp(26px,3.6vw,42px) 'Unbounded'; color:var(--yellow) }
+  .stat span{ font-size:13px; color:var(--mint) }
+  .stat + .stat{ border-left:2px dashed var(--line); padding-left:clamp(16px,3vw,32px) }
+
+  /* ── машина ─────────────────────────────────── */
+  .machine{
+    position:relative; background:var(--panel); border:2px solid var(--line);
+    border-radius:18px; padding:clamp(22px,4vw,40px);
+    box-shadow:10px 10px 0 rgba(4,12,9,.5);
+  }
+  .machine-tag{
+    position:absolute; top:-15px; left:26px; transform:rotate(-2deg);
+    background:var(--yellow); color:var(--ink); border:2px solid var(--ink);
+    font:700 12px 'JetBrains Mono'; padding:4px 12px; border-radius:999px;
+    box-shadow:3px 3px 0 var(--shadow);
+  }
+  .field-label{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px }
+  .field-label label{ font:600 13px 'JetBrains Mono'; color:var(--mint); letter-spacing:.4px }
+  #charCount{ font:600 12px 'JetBrains Mono'; color:var(--muted); transition:color .2s }
+  #charCount.on{ color:var(--yellow) }
+  .url-input{
+    width:100%; background:var(--panel2); border:2px solid var(--line); border-radius:12px;
+    color:var(--text); font:500 clamp(15px,2.2vw,19px)/1.4 'JetBrains Mono'; padding:17px 20px;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .url-input::placeholder{ color:#5E8474 }
+  .url-input:focus{ outline:none; border-color:var(--yellow); box-shadow:0 0 0 4px rgba(255,210,63,.16) }
+  .url-input.err{ border-color:var(--red); animation:shake .35s }
+  @keyframes shake{ 25%{transform:translateX(-6px)} 50%{transform:translateX(6px)} 75%{transform:translateX(-4px)} }
+  .row2{ display:grid; grid-template-columns:1fr auto; gap:14px; align-items:end; margin-top:16px }
+  .alias-wrap label{ display:block; font:600 12px 'JetBrains Mono'; color:var(--muted); margin-bottom:8px }
+  #alias{
+    width:100%; background:var(--panel2); border:2px solid var(--line); border-radius:10px;
+    color:var(--yellow); font:600 15px 'JetBrains Mono'; padding:13px 16px;
+  }
+  #alias:focus{ outline:none; border-color:var(--yellow) }
+  #aliasNote{ display:block; font:500 12px 'JetBrains Mono'; color:var(--red); margin-top:6px; min-height:16px }
+  .hint{ margin-top:14px; font-size:13px; color:var(--muted) }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:10px; cursor:pointer;
+    background:var(--yellow); color:var(--ink); border:2px solid var(--ink);
+    font:700 15px 'Unbounded'; padding:16px 28px; border-radius:999px;
+    box-shadow:4px 4px 0 var(--shadow); transition:transform .18s, box-shadow .18s;
+  }
+  .btn:hover{ transform:translate(-2px,-2px); box-shadow:7px 7px 0 var(--shadow) }
+  .btn:active{ transform:translate(2px,2px); box-shadow:1px 1px 0 var(--shadow) }
+  .btn[disabled]{ opacity:.7; cursor:wait; transform:none; box-shadow:4px 4px 0 var(--shadow) }
+  .btn .arr{ transition:transform .18s } .btn:hover .arr{ transform:translateX(5px) }
+  .btn.busy .arr{ animation:nudge .8s ease-in-out infinite }
+  @keyframes nudge{ 50%{ transform:translateX(6px) } }
+
+  /* компрессия */
+  .compressor{ margin-top:26px }
+  .cbar{
+    height:36px; border-radius:8px; display:flex; align-items:center; padding:0 14px;
+    font:600 12px 'JetBrains Mono'; white-space:nowrap; overflow:hidden;
+    transition:width .85s cubic-bezier(.7,0,.2,1);
+  }
+  .cbar-long{ background:var(--red); color:#2A0D05; width:100% }
+  .cbar-short{ background:var(--yellow); color:var(--ink); margin-top:10px; width:100% }
+  .csave{ margin-top:14px; font:900 30px 'Unbounded'; color:var(--mint) }
+  .csave small{ font:500 13px 'Golos Text'; color:var(--muted); margin-left:10px }
+
+  /* ── талоны ─────────────────────────────────── */
+  .result{ margin-top:26px }
+  .ticket{
+    --notch:var(--panel);
+    display:flex; background:var(--paper); color:var(--ink); border-radius:12px; position:relative;
+    box-shadow:6px 6px 0 rgba(4,12,9,.45); transition:transform .2s, box-shadow .2s;
+  }
+  .ticket:hover{ transform:translateY(-3px); box-shadow:9px 9px 0 rgba(4,12,9,.45) }
+  .ticket::before,.ticket::after{
+    content:''; position:absolute; right:171px; width:20px; height:20px;
+    border-radius:50%; background:var(--notch);
+  }
+  .ticket::before{ top:-12px } .ticket::after{ bottom:-12px }
+  .t-main{ flex:1; min-width:0; padding:18px 22px }
+  .t-tag{ font:600 11px 'JetBrains Mono'; text-transform:uppercase; letter-spacing:.8px; color:rgba(20,37,31,.55) }
+  .t-tag b{ color:var(--red) }
+  .t-short{
+    display:inline-block; margin:6px 0 4px; font:700 clamp(16px,2.4vw,21px) 'JetBrains Mono';
+    color:#0B3B2E; text-decoration:none; word-break:break-all;
+    border-bottom:2px dashed rgba(11,59,46,.4); transition:color .15s, border-color .15s;
+  }
+  .t-short:hover{ color:var(--red); border-color:var(--red) }
+  .t-long{ display:block; font:400 12px 'JetBrains Mono'; color:rgba(20,37,31,.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .t-side{
+    width:182px; border-left:2px dashed rgba(20,37,31,.35); padding:16px;
+    display:flex; flex-direction:column; gap:10px; justify-content:center;
+  }
+  .t-clicks{
+    align-self:center; background:#DCEDE2; border-radius:999px; padding:4px 12px;
+    font:600 12px 'JetBrains Mono'; color:#14532D;
+  }
+  .mini{
+    font:600 13px 'Golos Text'; border:2px solid var(--ink); background:var(--yellow); color:var(--ink);
+    border-radius:999px; padding:8px 12px; cursor:pointer; box-shadow:3px 3px 0 var(--ink); transition:.15s;
+  }
+  .mini:hover{ transform:translate(-1px,-1px); box-shadow:4px 4px 0 var(--ink) }
+  .mini.ok{ background:var(--mint) }
+  .mini.del{ background:var(--paper); color:var(--red); border-color:var(--red); box-shadow:3px 3px 0 var(--red) }
+  .t-actions{ display:flex; gap:8px }
+  .ticket.fresh{ animation:pop .5s cubic-bezier(.2,1.4,.4,1) }
+  @keyframes pop{ from{ transform:translateY(16px) scale(.96); opacity:0 } }
+
+  /* скелетон-лоадер истории */
+  .skel{ --notch:var(--bg); }
+  .skel .bar{ height:13px; border-radius:6px; background:linear-gradient(90deg,#16352A 25%,#1d4636 37%,#16352A 63%); background-size:400% 100%; animation:sh 1.3s ease infinite }
+  .skel .b1{ width:38%; margin-bottom:12px } .skel .b2{ width:72%; margin-bottom:9px } .skel .b3{ width:54% }
+  .skel .t-side .bar{ height:24px; border-radius:999px; width:80%; align-self:center }
+  @keyframes sh{ 0%{ background-position:100% 0 } 100%{ background-position:-100% 0 } }
+
+  /* история */
+  .history{ margin-top:44px }
+  .h-head{ display:flex; align-items:center; gap:16px; margin-bottom:18px; flex-wrap:wrap }
+  .h-head h2{ font:700 20px 'Unbounded' }
+  #hCount{ font:600 13px 'JetBrains Mono'; color:var(--mint) }
+  #clearAll{
+    margin-left:auto; background:none; border:none; cursor:pointer;
+    font:600 13px 'JetBrains Mono'; color:var(--red); border-bottom:1px dashed var(--red); padding:2px 0;
+  }
+  #histList{ display:flex; flex-direction:column; gap:16px }
+  .history .ticket{ --notch:var(--bg) }
+  .hist-note{ margin-top:14px; font:500 12px 'JetBrains Mono'; color:var(--muted) }
+
+  /* ── секции ─────────────────────────────────── */
+  .sec{ padding:clamp(48px,8vh,84px) 0; border-top:2px dashed var(--line) }
+  .sec-head{ display:flex; align-items:baseline; gap:16px; margin-bottom:26px; flex-wrap:wrap }
+  .sec-num{ font:700 15px 'JetBrains Mono'; color:var(--yellow) }
+  .sec-head h2{ font:900 clamp(22px,3.6vw,36px) 'Unbounded' }
+  .sec-head p{ width:100%; color:var(--muted); max-width:70ch }
+
+  .step{ display:grid; grid-template-columns:110px 1fr; gap:22px; padding:26px 0; border-top:2px dashed var(--line) }
+  .step:first-of-type{ border-top:none; padding-top:6px }
+  .step-num{ font:900 52px/1 'Unbounded'; color:transparent; -webkit-text-stroke:2px var(--yellow) }
+  .step h3{ font:700 18px 'Unbounded'; margin-bottom:8px }
+  .step p{ color:var(--muted); max-width:62ch }
+  .step p b{ color:var(--text) }
+  pre{
+    background:#08120E; border:2px solid var(--line); border-left:6px solid var(--yellow);
+    border-radius:10px; padding:16px 18px; margin-top:14px; overflow-x:auto;
+    font:500 13px/1.65 'JetBrains Mono'; color:#BFE8CF;
+  }
+  pre .c{ color:#628574 } pre .y{ color:var(--yellow) }
+
+  .dstep{ display:flex; gap:18px; align-items:flex-start; padding:18px 0; border-top:2px dashed var(--line) }
+  .dstep:first-of-type{ border-top:none; padding-top:6px }
+  .dchip{
+    flex:none; width:44px; height:44px; border-radius:50%; background:var(--yellow); color:var(--ink);
+    font:800 17px 'Unbounded'; display:grid; place-items:center; box-shadow:3px 3px 0 var(--shadow);
+  }
+  .dstep h3{ font:700 16px 'Unbounded'; margin-bottom:4px }
+  .dstep p{ color:var(--muted); max-width:62ch }
+  .dstep p b{ color:var(--text) }
+  .dom-builder{
+    display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:24px;
+    background:var(--panel2); border:2px dashed var(--line); border-radius:12px; padding:16px 20px;
+    font:700 clamp(14px,2.3vw,19px) 'JetBrains Mono';
+  }
+  .dom-builder .proto{ color:#5E8474 } .dom-builder .name{ color:var(--yellow) } .dom-builder .path{ color:var(--mint) }
+  #tldSel{
+    font:inherit; color:var(--red); background:transparent; border:none; cursor:pointer;
+    border-bottom:2px dashed var(--red); appearance:none; padding-right:4px;
+  }
+  #tldSel option{ background:var(--panel2); color:var(--text) }
+  .dom-copy{ margin-left:auto }
+
+  details{ border-top:2px dashed var(--line); padding:18px 0 }
+  details:last-of-type{ border-bottom:2px dashed var(--line) }
+  summary{
+    font:700 16px 'Unbounded'; cursor:pointer; list-style:none;
+    display:flex; justify-content:space-between; align-items:center; gap:14px;
+  }
+  summary::-webkit-details-marker{ display:none }
+  summary::after{ content:'+'; color:var(--yellow); font:800 22px 'Unbounded'; transition:transform .25s }
+  details[open] summary::after{ transform:rotate(45deg) }
+  details p{ color:var(--muted); margin-top:10px; max-width:72ch }
+  details p b{ color:var(--text) }
+
+  footer{ border-top:2px dashed var(--line); padding:26px 0 34px; margin-top:20px }
+  footer .container{ display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; font:500 13px 'JetBrains Mono'; color:var(--muted) }
+  footer b{ color:var(--yellow) }
+
+  /* оверлей перехода */
+  .overlay{ position:fixed; inset:0; z-index:50; background:rgba(6,17,13,.93); display:grid; place-items:center }
+  .o-card{ background:var(--panel); border:2px solid var(--yellow); border-radius:16px; padding:42px 50px; text-align:center; box-shadow:10px 10px 0 rgba(0,0,0,.4); max-width:88vw }
+  .o-card.bad{ border-color:var(--red) }
+  .spinner{ width:52px; height:52px; border-radius:50%; border:3px dashed var(--yellow); animation:spin 1.1s linear infinite; margin:0 auto 18px }
+  @keyframes spin{ to{ transform:rotate(360deg) } }
+  .o-title{ font:800 20px 'Unbounded'; color:var(--yellow); margin-bottom:8px }
+  .o-card.bad .o-title{ color:var(--red) }
+  .o-url{ font:500 13px 'JetBrains Mono'; color:var(--muted); word-break:break-all }
+  .o-back{ display:inline-block; margin-top:18px; color:var(--mint); font:600 13px 'JetBrains Mono'; text-decoration:none; border-bottom:1px dashed var(--mint) }
+
+  .reveal{ opacity:0; transform:translateY(22px); transition:opacity .6s ease, transform .6s ease }
+  .reveal.in{ opacity:1; transform:none }
+
+  @media (max-width:900px){
+    .hero{ grid-template-columns:1fr; align-items:start }
+    .road{ display:none }
+  }
+  @media (max-width:640px){
+    .ticket{ flex-direction:column }
+    .ticket::before,.ticket::after{ display:none }
+    .t-side{ width:100%; border-left:none; border-top:2px dashed rgba(20,37,31,.35); flex-direction:row; align-items:center; justify-content:space-between }
+    .row2{ grid-template-columns:1fr }
+    .btn{ justify-content:center }
+    .step{ grid-template-columns:1fr; gap:6px }
+    .step-num{ font-size:38px }
+    .dom-copy{ margin-left:0 }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{ animation:none !important; transition:none !important }
+    .reveal{ opacity:1; transform:none }
+  }
+</style>
+</head>
+<body>
+
+<div class="road l"></div><div class="road r"></div>
+
+<!-- бегущая строка -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <div class="ticker-group">
+      <span>site.ru/очень/длинный/адрес?utm=… <b>→</b> твой-домен.рф/ab3x</span><span class="sc">✂</span>
+      <span>без рекламы</span><span class="sc">✂</span>
+      <span>без трекеров и слежки</span><span class="sc">✂</span>
+      <span>ссылки живут в твоей базе</span><span class="sc">✂</span>
+      <span>открываются у всех и навсегда</span><span class="sc">✂</span>
+      <span>свой код вместо случайного</span><span class="sc">✂</span>
+    </div>
+    <div class="ticker-group">
+      <span>site.ru/очень/длинный/адрес?utm=… <b>→</b> твой-домен.рф/ab3x</span><span class="sc">✂</span>
+      <span>без рекламы</span><span class="sc">✂</span>
+      <span>без трекеров и слежки</span><span class="sc">✂</span>
+      <span>ссылки живут в твоей базе</span><span class="sc">✂</span>
+      <span>открываются у всех и навсегда</span><span class="sc">✂</span>
+      <span>свой код вместо случайного</span><span class="sc">✂</span>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="container">
+    <a class="logo" href="#"><span class="logo-badge">✂</span>короче<i>.</i></a>
+    <nav>
+      <a href="#tool">Сократить</a>
+      <a href="#how">Как работает</a>
+      <a href="#domain">Свой домен</a>
+      <a href="#faq">Вопросы</a>
+      <span class="db-chip ping" id="dbChip"><span class="dot"></span><span id="dbTxt">соединяюсь…</span></span>
+    </nav>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- герой: сразу инструмент -->
+  <section class="hero" id="tool">
+    <div>
+      <p class="overline">// сервис коротких ссылок · без рекламы</p>
+      <h1>Ссылка длинная?<br><em>Была.</em></h1>
+      <p class="sub">Вставь адрес — получи короткий код, который откроется у кого угодно. Без регистрации, без слежки, без «подождите 5 секунд».</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="stLinks">0</b><span>твоих ссылок</span></div>
+      <div class="stat"><b id="stClicks">0</b><span>переходов</span></div>
+      <div class="stat"><b id="stSaved">0</b><span>символов сэкономлено</span></div>
+    </div>
+  </section>
+
+  <!-- машина -->
+  <section class="machine">
+    <span class="machine-tag">⚙ компрессор ссылок</span>
+    <form id="form" novalidate>
+      <div class="field-label">
+        <label for="url">01 · вставь длинную ссылку</label>
+        <span id="charCount">ждём ссылку</span>
+      </div>
+      <input class="url-input" id="url" type="text" inputmode="url" autocomplete="off"
+             placeholder="https://example.com/очень/длинный/адрес?utm_source=…">
+      <div class="row2">
+        <div class="alias-wrap">
+          <label for="alias">02 · свой код (необязательно)</label>
+          <input id="alias" type="text" autocomplete="off" placeholder="например: promo">
+          <span id="aliasNote"></span>
+        </div>
+        <button class="btn" id="goBtn" type="submit">Сократить <span class="arr">→</span></button>
+      </div>
+      <p class="hint">Enter тоже работает · <b>https://</b> добавим сами · код: латиница, цифры, «-» и «_», 3–20 символов</p>
+    </form>
+
+    <div class="compressor" id="compressor" hidden>
+      <div class="cbar cbar-long"><span id="longLabel"></span></div>
+      <div class="cbar cbar-short"><span id="shortLabel"></span></div>
+      <div class="csave"><span id="saveLabel">−0%</span><small>длины</small></div>
+    </div>
+
+    <div class="result" id="result" hidden>
+      <div class="ticket fresh" id="freshTicket">
+        <div class="t-main">
+          <span class="t-tag">готово · код <b id="rCode"></b></span>
+          <a class="t-short" id="rShort" target="_blank" rel="noopener"></a>
+          <span class="t-long" id="rLong"></span>
+        </div>
+        <div class="t-side">
+          <span class="t-clicks">0 переходов</span>
+          <div class="t-actions">
+            <button class="mini" type="button" data-copy>копировать</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- история -->
+  <section class="history" id="histSec" hidden>
+    <div class="h-head">
+      <h2>Твои сокращения</h2>
+      <span id="hCount"></span>
+      <button id="clearAll" type="button">убрать из списка</button>
+    </div>
+    <div id="histList"></div>
+    <p class="hist-note" id="histNote"></p>
+  </section>
+
+  <!-- как работает -->
+  <section class="sec reveal" id="how">
+    <div class="sec-head">
+      <span class="sec-num">01 /</span><h2>Как это устроено</h2>
+      <p>Три детали: код, таблица «код → ссылка» в твоей базе и страница-переходчик. Статус-чип в шапке показывает, жива ли связь с базой прямо сейчас.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div>
+        <h3>Генерация кода</h3>
+        <p>Функция <b>genCode()</b> собирает случайные 6 символов: <b>ab3x9K</b>. Это ~56 миллиардов комбинаций — хватит на всю жизнь. Хочешь свой код — впиши его в поле «свой код», страница сначала проверит в базе, не занят ли он.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div>
+        <h3>Хранилище — твоя база Supabase</h3>
+        <p>Пара «код → ссылка» лежит в таблице <b>links</b>. Запись идёт через публичный <b>anon</b>-ключ, а безопасность держит замок <b>RLS</b>: миру разрешено только читать и добавлять, менять и удалять — никому. Поэтому чужую ссылку не подменят и не снесут.</p>
+<pre><span class="c">-- политики, которые ты уже выполнил в SQL Editor</span>
+<span class="y">create policy</span> "все читают"  <span class="y">on</span> links <span class="y">for select using</span> (true);
+<span class="y">create policy</span> "все создают" <span class="y">on</span> links <span class="y">for insert with check</span> (true);
+<span class="c">-- update/delete намеренно не открыты</span></pre>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div>
+        <h3>Переход и счётчик кликов</h3>
+        <p>Открываешь <b>…/#ab3x</b> → страница дёргает базу по коду, находит ссылку и делает <b>location.replace(…)</b>. Параллельно вызывается функция <b>bump_clicks</b> — она прибавляет единицу к счётчику. Счётчик общий: тикает у всех, кто переходит.</p>
+<pre><span class="c">-- «форточка» для инкремента (обходит закрытый update)</span>
+<span class="y">create function</span> bump_clicks(p_code text)
+<span class="y">returns void language sql security definer as</span> $$
+  <span class="y">update</span> links <span class="y">set</span> clicks = clicks + 1 <span class="y">where</span> code = p_code;
+$$;</pre>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div>
+        <h3>«Твои» ссылки без аккаунта</h3>
+        <p>Аккаунтов тут нет, но список «что я сокращал» страница помнит: при создании она кладёт код в <b>localStorage</b> этого браузера (массив <b>myCodes</b>). История = пересечение твоих кодов и базы. Зайдёшь с другого устройства — история будет пустая, но сами ссылки всё равно откроются: редиректу владелец не нужен.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- свой домен -->
+  <section class="sec reveal" id="domain">
+    <div class="sec-head">
+      <span class="sec-num">02 /</span><h2>Своя ссылка — свой домен</h2>
+      <p>Чтобы сокращённые ссылки выглядели как <b>korche.рф/promo</b>, а не <b>…github.io/ror/#promo</b>, нужен короткий домен. База уже подключена — останется только прикрутить имя.</p>
+    </div>
+
+    <div class="dstep">
+      <div class="dchip">1</div>
+      <div><h3>Купи короткий домен</h3>
+      <p>У регистраторов (reg.ru, ru-center, Cloudflare, Namecheap). Зоны <b>.site</b> и <b>.click</b> бывают от ~100 ₽/год, <b>.ru</b> — около 200–300 ₽/год. Ищи короткое имя: <b>korche</b>, <b>krch</b>, <b>tuda</b>.</p></div>
+    </div>
+    <div class="dstep">
+      <div class="dchip">2</div>
+      <div><h3>Привяжи его к хостингу</h3>
+      <p>В настройках домена пропиши DNS-записи, которые покажет GitHub Pages / Netlify / Cloudflare. Подожди 5–30 минут — и твоя страница открывается по своему имени. Код менять не придётся.</p></div>
+    </div>
+    <div class="dstep">
+      <div class="dchip">3</div>
+      <div><h3>Собери ссылку мечты</h3>
+      <p>Примерь свой будущий адрес — выбери зону:</p></div>
+    </div>
+
+    <div class="dom-builder">
+      <span class="proto">https://</span><span class="name">korche</span><select id="tldSel">
+        <option>.рф</option><option>.ru</option><option>.link</option><option>.site</option><option>.click</option>
+      </select><span class="path">/promo</span>
+      <button class="mini dom-copy" type="button" id="domCopy" data-domcopy>копировать</button>
+    </div>
+  </section>
+
+  <!-- faq -->
+  <section class="sec reveal" id="faq">
+    <div class="sec-head">
+      <span class="sec-num">03 /</span><h2>Вопросы</h2>
+    </div>
+    <details>
+      <summary>Ссылки теперь работают у других людей?</summary>
+      <p>Да — это и есть причина подключить базу. Короткая ссылка ищет адрес <b>в общей таблице</b>, а не в твоём браузере, поэтому откроется с любого устройства. Проверь: скинь себе ссылку и открой её в <b>режиме инкогнито</b> — должен сработать переход.</p>
+    </details>
+    <details>
+      <summary>Что значит чип «демо-режим» в шапке?</summary>
+      <p>Что в коде не заполнены две строчки с ключами Supabase — и страница честно ушла в запасной режим (ссылки живут только в браузере). Вставь <b>Project URL</b> и <b>anon public key</b> в верх скрипта, перезалей файл — чип позеленеет в «база онлайн».</p>
+    </details>
+    <details>
+      <summary>Кнопка «убрать из списка» удаляет ссылку из базы?</summary>
+      <p>Нет — и это намеренно. Замок RLS закрыт на удаление, чтобы никто (и скрипт тоже) не мог снести чужое или твоё по ошибке. Кнопка лишь убирает код из твоего локального списка — ссылка перестаёт светиться в истории у этого браузера, но сама продолжает работать у всех, кому ты её дал.</p>
+    </details>
+    <details>
+      <summary>А если кто-то наспамит в мою таблицу?</summary>
+      <p>Теоретически создать строку может любой (иначе и ты не смог бы). На бесплатном тарифе Supabase места хватает с головой, а если станет актуально — добавим простую защиту: капчу или ограничение «не больше N ссылок в минуту с одного адреса». Это отдельная маленькая докрутка на вырост, не сегодня.</p>
+    </details>
+    <details>
+      <summary>Сколько это стоит?</summary>
+      <p>Код, GitHub Pages и Supabase (до 500 МБ и 50 000 активных строк) — <b>бесплатно</b>. Домен — по желанию, от ~100 ₽/год. Рекламы нет и не будет: это твоя страница и твоя база.</p>
+    </details>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <span><b>короче.</b> — твой личный сокращатель</span>
+    <span>без рекламы · без трекеров · своя база</span>
+  </div>
+</footer>
+
+<!-- экран перехода -->
+<div class="overlay" id="overlay" hidden>
+  <div class="o-card" id="oCard">
+    <div class="spinner" id="oSpin"></div>
+    <div class="o-title" id="oTitle">Переходим…</div>
+    <div class="o-url" id="redirTo"></div>
+    <a class="o-back" id="oBack" href="#" hidden>← вернуться на главную</a>
+  </div>
+</div>
+
+<script>
+  /* ═══════════════════════════════════════════════════════════
+     ★ ВСТАВЬ СЮДА ДВА ЗНАЧЕНИЯ ИЗ SUPABASE (Settings → API) ★
+     Оставишь пустыми — сайт сам уйдёт в демо-режим, не сломается.
+     ═══════════════════════════════════════════════════════════ */
+  const SUPA = '';   // ← например: https://abcdefgh.supabase.co
+  const KEY  = '';   // ← anon public key (длинная строка)
+  /* ═══════════════════════════════════════════════════════════ */
+
+  const ONLINE = !!(SUPA && KEY);
+  const $ = s => document.querySelector(s);
+
+  /* ── локальные ключи ── */
+  const K_MY='kor_my_v2', K_TOK='kor_tok_v2', K_DEMO='kor_demo_v2';
+  const getMy  = () => ONLINE ? JSON.parse(localStorage.getItem(K_MY)||'[]') : Object.keys(getDemo());
+  const setMy  = a => localStorage.setItem(K_MY, JSON.stringify(a));
+  const addMy  = c => { const a=getMy(); if(!a.includes(c)){ a.unshift(c); setMy(a); } };
+  const remMy  = c => setMy(getMy().filter(x=>x!==c));
+  const getTok = () => JSON.parse(localStorage.getItem(K_TOK)||'{}');
+  const setTok = (c,t) => { const o=getTok(); o[c]=t; localStorage.setItem(K_TOK, JSON.stringify(o)); };
+  const remTok = c => { const o=getTok(); delete o[c]; localStorage.setItem(K_TOK, JSON.stringify(o)); };
+  const getDemo= () => JSON.parse(localStorage.getItem(K_DEMO)||'{}');
+  const setDemo= o => localStorage.setItem(K_DEMO, JSON.stringify(o));
+
+  const ALPH='abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const genCode=(n=6)=>Array.from({length:n},()=>ALPH[Math.random()*ALPH.length|0]).join('');
+  const genTok =()=>Array.from({length:24},()=>ALPH[Math.random()*ALPH.length|0]).join('');
+  const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const plural=(n,f)=>f[(n%10===1&&n%100!==11)?0:(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20))?1:2];
+
+  /* ── сетевой слой Supabase (чистый fetch, без SDK) ── */
+  const authH = () => ({ apikey:KEY, Authorization:'Bearer '+KEY });
+  const jsonH = () => ({ ...authH(), 'Content-Type':'application/json', Prefer:'return=minimal' });
+  async function apiGet(path){
+    const r = await fetch(SUPA+'/rest/v1/'+path, { headers:authH() });
+    if(!r.ok) throw new Error('GET '+r.status);
+    return r.json();
+  }
+  async function apiPost(path, body, minimal=true){
+    const h = minimal ? jsonH() : { ...authH(), 'Content-Type':'application/json' };
+    const r = await fetch(SUPA+'/rest/v1/'+path, { method:'POST', headers:h, body:JSON.stringify(body) });
+    if(!r.ok) throw new Error('POST '+r.status);
+    return minimal ? null : r.json();
+  }
+  const inFilter = codes => 'code=in.(' + codes.map(c=>'"'+c.replace(/"/g,'')+'"').join(',') + ')';
+
+  /* ── единый интерфейс над двумя бэкендами (база / демо) ── */
+  async function pingDB(){
+    if(!ONLINE) return 'demo';
+    try { await apiGet('links?select=code&limit=1'); return 'on'; }
+    catch { return 'err'; }
+  }
+  async function loadLink(code){
+    if(ONLINE){ const rows = await apiGet('links?'+`code=eq.${encodeURIComponent(code)}`+'&limit=1'); return rows[0]||null; }
+    const d = getDemo()[code]; return d ? { code, ...d } : null;
+  }
+  async function linkExists(code){
+    if(ONLINE){ const rows = await apiGet('links?'+`code=eq.${encodeURIComponent(code)}`+'&select=code&limit=1'); return rows.length>0; }
+    return !!getDemo()[code];
+  }
+  async function createLink(item){
+    if(ONLINE){
+      await apiPost('links', item);           // бросит ошибку при занятом коде (duplicate key)
+      addMy(item.code); setTok(item.code, item.owner_token);
+    } else {
+      const d=getDemo(); d[item.code]={ url:item.url, created:item.created, clicks:0 }; setDemo(d);
+    }
+    return { ...item, clicks:0 };
+  }
+  async function listMyLinks(){
+    const codes = getMy();
+    if(!codes.length) return [];
+    if(ONLINE){
+      const rows = await apiGet('links?'+inFilter(codes)+'&order=created.desc');
+      const byCode = Object.fromEntries(rows.map(r=>[r.code,r]));
+      return codes.map(c=>byCode[c]).filter(Boolean);   // порядок — как создавал
+    }
+    const d=getDemo();
+    return codes.map(c=>d[c]?{code:c,...d[c]}:null).filter(Boolean)
+                .sort((a,b)=>b.created-a.created);
+  }
+  async function bumpClick(code){
+    if(ONLINE){ try{ await apiPost('rpc/bump_clicks', { p_code:code }); }catch{} }
+    else { const d=getDemo(); if(d[code]){ d[code].clicks=(d[code].clicks||0)+1; setDemo(d); } }
+  }
+
+  /* ── утилиты UI ── */
+  function normalize(u){
+    u=u.trim(); if(!u) return null;
+    if(!/^https?:\/\//i.test(u)) u='https://'+u;
+    try{ new URL(u); }catch{ return null; }
+    return u;
+  }
+  function shortBase(){
+    if(location.protocol==='http:'||location.protocol==='https:') return location.origin+location.pathname;
+    return 'https://твой-домен.рф/';
+  }
+  const shortUrl = c => shortBase()+'#'+c;
+
+  function animateNumber(el,from,to,fmt,dur=700){
+    const t0=performance.now();
+    (function tick(t){
+      const p=Math.min(1,(t-t0)/dur);
+      const v=Math.round(from+(to-from)*(1-Math.pow(1-p,3)));
+      el.textContent=fmt?fmt(v):v.toLocaleString('ru-RU');
+      if(p<1) requestAnimationFrame(tick);
+    })(t0);
+  }
+  function animStat(el,to){ const from=+el.dataset.v||0; el.dataset.v=to; animateNumber(el,from,to); }
+
+  /* ── статус-чип ── */
+  function setChip(state){
+    const chip=$('#dbChip'), txt=$('#dbTxt');
+    chip.className='db-chip '+state;
+    txt.textContent = { ping:'соединяюсь…', on:'база онлайн', demo:'демо-режим', err:'нет связи с базой' }[state];
+  }
+
+  /* ── счётчик символов ── */
+  const input=$('#url'), aliasInput=$('#alias'), charCount=$('#charCount');
+  input.addEventListener('input',()=>{
+    const n=input.value.trim().length;
+    charCount.textContent = n ? n+' '+plural(n,['символ','символа','символов']) : 'ждём ссылку';
+    charCount.classList.toggle('on', n>0);
+  });
+  function shake(el){ el.classList.remove('err'); void el.offsetWidth; el.classList.add('err'); }
+
+  /* ── создание ссылки ── */
+  const goBtn=$('#goBtn');
+  $('#form').addEventListener('submit', async e=>{
+    e.preventDefault();
+    const note=$('#aliasNote'); note.textContent='';
+    const url=normalize(input.value);
+    if(!url){ shake(input); input.focus(); return; }
+
+    const list=getMy();
+    let code; const alias=aliasInput.value.trim();
+    if(alias){
+      if(!/^[a-zA-Z0-9_-]{3,20}$/.test(alias)){ note.textContent='код: 3–20 символов, только латиница, цифры, «-» и «_»'; shake(aliasInput); return; }
+      if(list.includes(alias)){ note.textContent='этот код уже есть у тебя в списке'; shake(aliasInput); return; }
+      try{ if(await linkExists(alias)){ note.textContent='такой код уже занят в базе — придумай другой'; shake(aliasInput); return; } }
+      catch{ note.textContent='не удалось проверить код (проверь связь с базой)'; shake(aliasInput); return; }
+      code=alias;
+    } else {
+      code=genCode();
+      let guard=0;
+      while((list.includes(code) || (await linkExists(code).catch(()=>false))) && guard++<8) code=genCode();
+    }
+
+    goBtn.disabled=true; goBtn.classList.add('busy'); goBtn.firstChild.textContent='Режу ';
+    try{
+      const item = await createLink({ code, url, created: ONLINE ? undefined : Date.now(), owner_token: genTok() });
+      runCompress(url, item);
+      input.value=''; aliasInput.value=''; charCount.textContent='ждём ссылку'; charCount.classList.remove('on');
+      await renderHist(); renderStats();
+    }catch(err){
+      note.textContent = /duplicate|23505/i.test(err.message) ? 'такой код уже занят — придумай другой'
+                       : 'не удалось сохранить: '+err.message+' (проверь ключи и политики)';
+      shake(aliasInput||input);
+    }finally{
+      goBtn.disabled=false; goBtn.classList.remove('busy'); goBtn.firstChild.textContent='Сократить ';
+    }
+  });
+
+  /* ── анимация «сжатия» ── */
+  function runCompress(long, item){
+    const short=shortUrl(item.code), comp=$('#compressor'); comp.hidden=false;
+    $('#longLabel').textContent  = (long.length>46?long.slice(0,46)+'…':long)+'  ·  '+long.length+' симв.';
+    $('#shortLabel').textContent = short+'  ·  '+short.length+' симв.';
+    $('#longLabel').parentElement.style.width='100%';
+    $('#shortLabel').parentElement.style.width='100%';
+    const pct=Math.max(6, Math.round(short.length/long.length*100));
+    setTimeout(()=>{ $('#shortLabel').parentElement.style.width=pct+'%'; }, 80);
+    animateNumber($('#saveLabel'),0,100-pct,v=>'−'+v+'%');
+    setTimeout(()=>showResult(item,long,short), 800);
+  }
+  function showResult(item,long,short){
+    $('#rCode').textContent=item.code;
+    const a=$('#rShort'); a.textContent=short; a.href=short;
+    $('#rLong').textContent=long;
+    $('#freshTicket').dataset.code=item.code;
+    $('#freshTicket').querySelector('.t-clicks').textContent='0 '+plural(0,['переход','перехода','переходов']);
+    const res=$('#result'); res.hidden=false;
+    const t=$('#freshTicket'); t.classList.remove('fresh'); void t.offsetWidth; t.classList.add('fresh');
+    res.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  /* ── история ── */
+  function ticketHTML(l){
+    const d=new Date(l.created), date=d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'});
+    const clicks=l.clicks||0;
+    return `<div class="ticket" data-code="${esc(l.code)}">
+      <div class="t-main">
+        <span class="t-tag">${date} · код <b>${esc(l.code)}</b></span>
+        <a class="t-short" href="${esc(shortUrl(l.code))}" target="_blank" rel="noopener">${esc(shortUrl(l.code))}</a>
+        <span class="t-long">${esc(l.url)}</span>
+      </div>
+      <div class="t-side">
+        <span class="t-clicks">${clicks} ${plural(clicks,['переход','перехода','переходов'])}</span>
+        <div class="t-actions">
+          <button class="mini" type="button" data-copy>копировать</button>
+          <button class="mini del" type="button" data-del title="убрать из списка">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  const skelHTML = `<div class="ticket skel"><div class="t-main"><div class="bar b1"></div><div class="bar b2"></div><div class="bar b3"></div></div><div class="t-side"><div class="bar"></div></div></div>`;
+  async function renderHist(){
+    const sec=$('#histSec'), listEl=$('#histList');
+    const codes=getMy();
+    if(!codes.length){ sec.hidden=true; return; }
+    sec.hidden=false;
+    $('#hCount').textContent = codes.length+' '+plural(codes.length,['ссылка','ссылки','ссылок']);
+    listEl.innerHTML = skelHTML.repeat(Math.min(codes.length,3));   // живой лоадер
+    try{
+      const items = await listMyLinks();
+      listEl.innerHTML = items.length ? items.map(ticketHTML).join('') : '<p class="hist-note">пока пусто</p>';
+    }catch{
+      listEl.innerHTML = '<p class="hist-note" style="color:var(--red)">не удалось подгрузить историю</p>';
+    }
+    $('#histNote').textContent = ONLINE
+      ? 'Ссылки хранятся в твоей базе и открываются у всех. Список «своих» помнит этот браузер.'
+      : 'Демо-режим: ссылки живут только в этом браузере. Вставь ключи Supabase, чтобы они работали у всех.';
+  }
+  async function renderStats(){
+    const items = await listMyLinks().catch(()=>[]);
+    const base=shortBase().length+1;
+    animStat($('#stLinks'), items.length);
+    animStat($('#stClicks'), items.reduce((s,l)=>s+(l.clicks||0),0));
+    animStat($('#stSaved'), items.reduce((s,l)=>s+Math.max(0,l.url.length-(base+l.code.length)),0));
+  }
+  $('#clearAll').addEventListener('click', async ()=>{
+    if(!confirm('Убрать все ссылки из своего списка? (сами ссылки в базе останутся работать у тех, кому ты их дал)')) return;
+    getMy().forEach(c=>remTok(c)); setMy([]);
+    if(!ONLINE) setDemo({});
+    await renderHist(); renderStats();
+  });
+
+  /* ── копирование / удаление (делегирование) ── */
+  function copyText(t,btn){
+    const done=()=>{ const o=btn.textContent; btn.textContent='скопировано ✓'; btn.classList.add('ok'); setTimeout(()=>{btn.textContent=o;btn.classList.remove('ok');},1300); };
+    const fb=()=>{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); };
+    if(navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(done).catch(fb); else fb();
+  }
+  document.addEventListener('click', async e=>{
+    const c=e.target.closest('[data-copy]');
+    if(c){ copyText(c.closest('.ticket').querySelector('.t-short').textContent.trim(), c); return; }
+    const dc=e.target.closest('[data-domcopy]');
+    if(dc){ copyText('https://'+$('#tldSel').previousElementSibling.textContent+$('#tldSel').value+'/promo', dc); return; }
+    const d=e.target.closest('[data-del]');
+    if(d){ const code=d.closest('.ticket').dataset.code; remMy(code); remTok(code); await renderHist(); renderStats(); }
+  });
+
+  /* ── переход по короткой ссылке (#код) ── */
+  async function handleRedirect(){
+    const hash=location.hash.slice(1); if(!hash) return;
+    try{
+      const item = await loadLink(hash);
+      if(item){
+        bumpClick(hash);   // не ждём — пусть тикает в фоне
+        $('#redirTo').textContent = item.url.length>70 ? item.url.slice(0,70)+'…' : item.url;
+        $('#overlay').hidden=false;
+        setTimeout(()=>location.replace(item.url), 1400);
+      } else {
+        $('#oCard').classList.add('bad'); $('#oSpin').hidden=true;
+        $('#oTitle').textContent='Ссылка не найдена';
+        $('#redirTo').textContent='кода «'+hash+'» нет в базе';
+        $('#oBack').hidden=false; $('#overlay').hidden=false;
+      }
+    }catch{
+      $('#oCard').classList.add('bad'); $('#oSpin').hidden=true;
+      $('#oTitle').textContent='Не удалось связаться с базой';
+      $('#redirTo').textContent='проверь ключи Supabase и политики RLS';
+      $('#oBack').hidden=false; $('#overlay').hidden=false;
+    }
+  }
+
+  /* ── появление секций при скролле ── */
+  const io=new IntersectionObserver(es=>es.forEach(x=>{ if(x.isIntersecting){ x.target.classList.add('in'); io.unobserve(x.target); } }),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+  /* ── старт ── */
+  (async function init(){
+    setChip('ping');
+    const state = await pingDB();
+    setChip(state);
+    await handleRedirect();           // если открыли короткую — сразу ведём
+    if(location.hash.slice(1)) return; // на странице перехода историю не рисуем
+    await renderHist();
+    renderStats();
+  })();
+</script>
+</body>
+</html>
